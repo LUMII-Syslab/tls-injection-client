@@ -156,12 +156,34 @@ tasks.register("tls_injection_qkd") {
     }
 }
 
+tasks.register("tls_injection_butterfly") {
+    doFirst {
+        def directory = new File('src/tls-injection-qkd')
+        def cloned_dir = new File('../tls-injection-qkd')
+        def cloned_relative_dir = new File('../../tls-injection-qkd')
+        if (!directory.exists()) {
+            // cloning...
+            if (!cloned_dir.exists()) {
+                exec {
+                    workingDir '..'
+                    commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-butterfly.git'
+                }
+            }
+            // symlink...
+            Files.createSymbolicLink(directory.toPath(), cloned_relative_dir.toPath())
+        }
+
+    }
+}
+
 tasks.register("prerequisites") {
 }
 
 prerequisites.dependsOn(tls_injection_mechanism)
 tls_injection_pqc.dependsOn(tls_injection_mechanism)
 tls_injection_smartcard.dependsOn(tls_injection_mechanism)
+tls_injection_qkd.dependsOn(tls_injection_mechanism)
+tls_injection_butterfly.dependsOn(tls_injection_mechanism)
 build.dependsOn(prerequisites)
 
 sourceSets.main {

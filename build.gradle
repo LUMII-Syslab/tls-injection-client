@@ -13,6 +13,7 @@ apply from: 'tls_injection.gradle'
 prerequisites.dependsOn(tls_injection_pqc)
 prerequisites.dependsOn(tls_injection_smartcard)
 prerequisites.dependsOn(tls_injection_qkd)
+prerequisites.dependsOn(tls_injection_butterfly)
 ///// <<<<< TLS Injection Mechanism
 
 
