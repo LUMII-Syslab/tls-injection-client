@@ -8,52 +8,75 @@ buildscript {
     }
 }
 
-
-
 repositories {
     mavenCentral()
 }
 
-tasks.register("tls_injection_mechanism") {
-    doFirst {
-        def directory = new File('src/tls-injection-mechanism')
-        def cloned_dir = new File('../tls-injection-mechanism')
-        def cloned_relative_dir = new File('../../tls-injection-mechanism')
-        if (!directory.exists()) {
-            // cloning...
-            if (!cloned_dir.exists()) {
-                exec {
-                    workingDir '..'
-                    commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-mechanism.git'
-                }
-                exec {
-                    workingDir cloned_dir
-                    commandLine 'git', 'checkout', 'tls-injection2'
-                }
-            }
-            // symlink...
-            Files.createSymbolicLink(directory.toPath(), cloned_relative_dir.toPath())
+/////
+
+tasks.register("cloneTlsInjectionMechanism", Exec) {
+    workingDir = file("..")
+    commandLine "git", "clone", "https://github.com/LUMII-Syslab/tls-injection-mechanism.git"
+
+    onlyIf {
+        !file("../tls-injection-mechanism").exists()
+    }
+}
+
+tasks.register("checkoutTlsInjectionMechanism", Exec) {
+    dependsOn cloneTlsInjectionMechanism
+    workingDir = file("..")
+    commandLine "git",  'checkout', 'tls-injection2'
+}
+
+tasks.register("symlinkTlsInjectionMechanism") {
+    dependsOn "cloneTlsInjectionMechanism"
+
+    def source = file("src/tls-injection-mechanism").toPath()
+    def target = file("../tls-injection-mechanism").toPath()
+    doLast {
+        if (!file(source).exists()) {
+            Files.createDirectories(source.parent)
+            Files.createSymbolicLink(source,target)
         }
     }
 }
 
-tasks.register("tls_injection_pqc") {
-    doFirst {
-        def directory = new File('src/tls-injection-pqc')
-        def cloned_dir = new File('../tls-injection-pqc')
-        def cloned_relative_dir = new File('../../tls-injection-pqc')
-        if (!directory.exists()) {
-            // cloning...
-            if (!cloned_dir.exists()) {
-                exec {
-                    workingDir '..'
-                    commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-pqc.git'
-                }
-            }
-            // symlink...
-            Files.createSymbolicLink(directory.toPath(), cloned_relative_dir.toPath())
+tasks.register("tls_injection_mechanism") {
+    dependsOn symlinkTlsInjectionMechanism
+}
+
+/////
+
+tasks.register("cloneTlsInjectionPqc", Exec) {
+    workingDir = file("..")
+    commandLine "git", "clone", "https://github.com/LUMII-Syslab/tls-injection-pqc.git"
+
+    onlyIf {
+        !file("../tls-injection-pqc").exists()
+    }
+}
+
+tasks.register("symlinkTlsInjectionPqc") {
+    dependsOn "cloneTlsInjectionPqc"
+
+    def source = file("src/tls-injection-pqc").toPath()
+    def target = file("../tls-injection-pqc").toPath()
+    doLast {
+
+        if (!file(source).exists()) {
+            Files.createDirectories(source.parent)
+            Files.createSymbolicLink(source, target)
         }
-        def inWindows = System.getProperty("os.name").toLowerCase().contains("windows");
+    }
+}
+
+
+tasks.register("downloadPqcLibs") {
+    dependsOn cloneTlsInjectionPqc
+    dependsOn symlinkTlsInjectionPqc
+
+    doFirst {
 
         download.run {
             src ([
@@ -98,84 +121,129 @@ tasks.register("tls_injection_pqc") {
             overwrite true
         }
 
-        if (!inWindows) {
-            exec {
-                workingDir 'lib/Linux-x86_64'
-                commandLine '/bin/bash', '-c', 'chmod +x *.so'
-            }
-            exec {
-                workingDir 'lib/Darwin-x86_64'
-                commandLine '/bin/bash', '-c', 'chmod +x *.dylib'
-            }
-            exec {
-                workingDir 'lib/Darwin-arm64'
-                commandLine '/bin/bash', '-c', 'chmod +x *.dylib'
-            }
-        }
+    }
+}
 
+
+tasks.register("chmodPqc1", Exec) {
+    workingDir 'lib/Linux-x86_64'
+    commandLine '/bin/bash', '-c', 'chmod +x *.so'
+}
+
+tasks.register("chmodPqc2", Exec) {
+    workingDir 'lib/Darwin-x86_64'
+    commandLine '/bin/bash', '-c', 'chmod +x *.dylib'
+}
+
+tasks.register("chmodPqc3", Exec) {
+    workingDir 'lib/Darwin-arm64'
+    commandLine '/bin/bash', '-c', 'chmod +x *.dylib'
+}
+
+tasks.register("chmodPqcLibs") {
+    dependsOn chmodPqc1, chmodPqc2, chmodPqc3
+
+    onlyIf {
+        !System.getProperty("os.name").toLowerCase().contains("windows");
+    }
+}
+
+tasks.register("tls_injection_pqc") {
+    dependsOn cloneTlsInjectionPqc
+    dependsOn symlinkTlsInjectionPqc
+    dependsOn downloadPqcLibs
+    dependsOn chmodPqcLibs
+}
+
+/////
+
+tasks.register("cloneTlsInjectionSmartcard", Exec) {
+    workingDir = file("..")
+    commandLine "git", "clone", "https://github.com/LUMII-Syslab/tls-injection-smartcard.git"
+
+    onlyIf {
+        !file("../tls-injection-smartcard").exists()
+    }
+}
+
+tasks.register("symlinkTlsInjectionSmartcard") {
+    dependsOn "cloneTlsInjectionSmartcard"
+
+    def source = file("src/tls-injection-smartcard").toPath()
+    def target = file("../tls-injection-smartcard").toPath()
+    doLast {
+
+        if (!file(source).exists()) {
+            Files.createDirectories(source.parent)
+            Files.createSymbolicLink(source, target)
+        }
     }
 }
 
 tasks.register("tls_injection_smartcard") {
-    doFirst {
-        def directory = new File('src/tls-injection-smartcard')
-        def cloned_dir = new File('../tls-injection-smartcard')
-        def cloned_relative_dir = new File('../../tls-injection-smartcard')
-        if (!directory.exists()) {
-            // cloning...
-            if (!cloned_dir.exists()) {
-                exec {
-                    workingDir '..'
-                    commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-smartcard.git'
-                }
-            }
-            // symlink...
-            Files.createSymbolicLink(directory.toPath(), cloned_relative_dir.toPath())
-        }
+    dependsOn symlinkTlsInjectionSmartcard
+}
 
+/////
+
+
+tasks.register("cloneTlsInjectionQkd", Exec) {
+    workingDir = file("..")
+    commandLine "git", "clone", "https://github.com/LUMII-Syslab/tls-injection-qkd.git"
+
+    onlyIf {
+        !file("../tls-injection-qkd").exists()
+    }
+}
+
+tasks.register("symlinkTlsInjectionQkd") {
+    dependsOn "cloneTlsInjectionQkd"
+
+    def source = file("src/tls-injection-qkd").toPath()
+    def target = file("../tls-injection-qkd").toPath()
+    doLast {
+
+        if (!file(source).exists()) {
+            Files.createDirectories(source.parent)
+            Files.createSymbolicLink(source, target)
+        }
     }
 }
 
 tasks.register("tls_injection_qkd") {
-    doFirst {
-        def directory = new File('src/tls-injection-qkd')
-        def cloned_dir = new File('../tls-injection-qkd')
-        def cloned_relative_dir = new File('../../tls-injection-qkd')
-        if (!directory.exists()) {
-            // cloning...
-            if (!cloned_dir.exists()) {
-                exec {
-                    workingDir '..'
-                    commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-qkd.git'
-                }
-            }
-            // symlink...
-            Files.createSymbolicLink(directory.toPath(), cloned_relative_dir.toPath())
-        }
+    dependsOn symlinkTlsInjectionQkd
+}
 
+/////
+
+tasks.register("cloneTlsInjectionButterfly", Exec) {
+    workingDir = file("..")
+    commandLine "git", "clone", "https://github.com/LUMII-Syslab/tls-injection-butterfly.git"
+
+    onlyIf {
+        !file("../tls-injection-butterfly").exists()
+    }
+}
+
+tasks.register("symlinkTlsInjectionButterfly") {
+    dependsOn "cloneTlsInjectionButterfly"
+
+    def source = file("src/tls-injection-butterfly").toPath()
+    def target = file("../tls-injection-butterfly").toPath()
+    doLast {
+
+        if (!file(source).exists()) {
+            Files.createDirectories(source.parent)
+            Files.createSymbolicLink(source, target)
+        }
     }
 }
 
 tasks.register("tls_injection_butterfly") {
-    doFirst {
-        def directory = new File('src/tls-injection-qkd')
-        def cloned_dir = new File('../tls-injection-qkd')
-        def cloned_relative_dir = new File('../../tls-injection-qkd')
-        if (!directory.exists()) {
-            // cloning...
-            if (!cloned_dir.exists()) {
-                exec {
-                    workingDir '..'
-                    commandLine 'git', 'clone', 'https://github.com/LUMII-Syslab/tls-injection-butterfly.git'
-                }
-            }
-            // symlink...
-            Files.createSymbolicLink(directory.toPath(), cloned_relative_dir.toPath())
-        }
-
-    }
+    dependsOn symlinkTlsInjectionButterfly
 }
 
+/////
 tasks.register("prerequisites") {
 }
 
