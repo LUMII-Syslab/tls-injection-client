@@ -111,13 +111,9 @@ tasks.withType(Test) {
     systemProperty "java.library.path", project.buildDir.absolutePath + '/native/nativeCompile'
 }
 
-task testNative {
-//    dependsOn nativeCompile
-    doLast {
-    if (osName.contains("windows")) {
-        def libFile = project.buildDir.absolutePath + '/native/nativeCompile/' + artifactName + '.lib'
-        exec {
-                commandLine 'clang',
+tasks.register("compileTestOnWindows", Exec) {
+    def libFile = project.buildDir.absolutePath + '/native/nativeCompile/' + artifactName + '.lib'
+    commandLine 'clang',
                         '-I'+project.buildDir.absolutePath + '/native/nativeCompile/',
                         '-L'+project.buildDir.absolutePath + '/native/nativeCompile/',
                         '-Wall',
@@ -125,13 +121,14 @@ task testNative {
                         '-lpthread',
                         '-o', project.buildDir.absolutePath + '/native/nativeCompile/test.exe',
                         'src/test/cpp/test.cpp',
-                libFile
-        }
+                        libFile
+    onlyIf {
+        System.getProperty("os.name").toLowerCase().contains("windows");
     }
-    else
-    {
-        exec {
-                commandLine 'c++',
+}
+
+tasks.register("compileTestOnUnix", Exec) {
+    commandLine 'c++',
                         '-I'+project.buildDir.absolutePath + '/native/nativeCompile/',
                         '-L'+project.buildDir.absolutePath + '/native/nativeCompile/',
                         '-Wall',
@@ -139,24 +136,35 @@ task testNative {
                         '-Wl,-rpath,.,-rpath,/Users/sergejs/.sdkman/candidates/java/current/lib,-rpath,/Users/sergejs/.sdkman/candidates/java/current/bin/lib/server',
                         'src/test/cpp/test.cpp',
                         '-l'+artifactName // -l options must be in the end (for some c++ versions)
-         }
+    onlyIf {
+        !System.getProperty("os.name").toLowerCase().contains("windows");
     }
-        if (osName.contains("mac os")) {
-            exec {
-                commandLine 'install_name_tool',
+}
+
+tasks.register("fixTestOnMac", Exec) {
+    dependsOn compileTestOnUnix
+    commandLine 'install_name_tool',
                         '-change',
                         project.buildDir.absolutePath + '/native/nativeCompile/'+artifactNameWithExt,
                         '@loader_path/'+artifactNameWithExt,
                         project.buildDir.absolutePath + '/native/nativeCompile/test.exe'
-            }
-        }
-        exec {
-             workingDir project.buildDir.absolutePath+'/native/nativeCompile/'
+    onlyIf {
+        System.getProperty("os.name").toLowerCase().contains("mac os");
+    }
+}
+
+tasks.register("launchTest", Exec) {
+     workingDir project.buildDir.absolutePath+'/native/nativeCompile/'
 //             environment DYLD_LIBRARY_PATH: project.buildDir.absolutePath+'/native/nativeCompile/:'+project.buildDir.absolutePath+'../.libs:'+'$System.env.JAVA_HOME'+'/lib:'+'$System.env.JAVA_HOME'+'/lib/server'
 //             ^^^ needed, if liboqs is used for KEM and signatures; not needed, if pure-Java BouncyCastle KEM and signatures are used
-             commandLine project.buildDir.absolutePath+'/native/nativeCompile/test.exe'
-        }
-    }
+     commandLine project.buildDir.absolutePath+'/native/nativeCompile/test.exe'
+}
+
+task testNative {
+    dependsOn compileTestOnWindows
+    dependsOn compileTestOnUnix
+    dependsOn fixTestOnMac
+    dependsOn launchTest
 }
 
 // used by nativeCompile and, thus, by nativeLibrary
