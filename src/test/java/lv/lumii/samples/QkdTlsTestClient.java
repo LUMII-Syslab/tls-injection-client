@@ -1,4 +1,4 @@
-package org.webkernel.https;
+package lv.lumii.samples;
 
 import lv.lumii.qkd.InjectableEtsiKEM;
 import lv.lumii.tls.auth.FileToken;

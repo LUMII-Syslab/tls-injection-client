@@ -13,7 +13,7 @@ apply from: 'tls_injection.gradle'
 prerequisites.dependsOn(tls_injection_pqc)
 prerequisites.dependsOn(tls_injection_smartcard)
 prerequisites.dependsOn(tls_injection_qkd)
-//prerequisites.dependsOn(tls_injection_butterfly)
+prerequisites.dependsOn(tls_injection_butterfly)
 ///// <<<<< TLS Injection Mechanism
 
 
@@ -83,6 +83,19 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.11.0'
 //    implementation 'org.java-websocket:Java-WebSocket:1.5.3' -> embedded into src/java/main
     compileOnly 'org.graalvm.buildtools:native-gradle-plugin:0.9.19'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.14.0' // or latest
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.14.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.14.0'
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+    // Optional: for JUnit 4 tests on JUnit 5 platform
+    //testImplementation 'junit:junit:4.13.2'
+    //testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.14.0'
+
+    // for colorizing console output
+    implementation group: 'com.diogonunes', name: 'JColor', version: '5.5.1'
+    implementation 'org.java-websocket:Java-WebSocket:1.6.0'
+
 }
 
 // Excluding all jars from the nativeLibrary configuration.
@@ -101,15 +114,13 @@ configurations.nativeLibraryAndJars.forEach {
 }
 
 
+/*
 test {
     failFast = true
     // use the task testNative to build and run a test program, which uses the native library
-}
+}*/
 
-tasks.withType(Test) {
-    // adding the dir containing native lib to java.library.path (for testing)
-    systemProperty "java.library.path", project.buildDir.absolutePath + '/native/nativeCompile'
-}
+
 
 tasks.register("compileTestOnWindows", Exec) {
     def libFile = project.buildDir.absolutePath + '/native/nativeCompile/' + artifactName + '.lib'
@@ -160,7 +171,7 @@ tasks.register("launchTest", Exec) {
      commandLine project.buildDir.absolutePath+'/native/nativeCompile/test.exe'
 }
 
-task testNative {
+tasks.register('testNative') {
     dependsOn compileTestOnWindows
     dependsOn compileTestOnUnix
     dependsOn fixTestOnMac
@@ -207,3 +218,55 @@ nativeCompile {
     }
 }
 
+
+test {
+    useJUnitPlatform() // this enables JUnit 5
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+
+}
+
+tasks.register('HttpsClient', JavaExec) {
+    mainClass = "lv.lumii.samples.HttpsClient"
+    classpath = sourceSets.test.runtimeClasspath
+    systemProperty "java.library.path", project.buildDir.absolutePath + '/native/nativeCompile:' +
+            "/opt/homebrew/lib"
+}
+
+tasks.register('ButterflyUser1', JavaExec) {
+    mainClass = "lv.lumii.samples.ButterflyUser1"
+    classpath = sourceSets.test.runtimeClasspath
+}
+
+tasks.register('ButterflyUser2', JavaExec) {
+    mainClass = "lv.lumii.samples.ButterflyUser2"
+    classpath = sourceSets.test.runtimeClasspath
+}
+
+task listTestClasses {
+    doLast {
+        println "Discovered test classes:"
+        sourceSets.test.output.classesDirs.each { dir ->
+            fileTree(dir: dir, include: '**/*.class').each { println it }
+        }
+    }
+}
+
+tasks.withType(JavaExec) {
+    // adding the dir containing native lib to java.library.path (for testing)
+    systemProperty "java.library.path", project.buildDir.absolutePath + '/native/nativeCompile:' +
+            "/opt/homebrew/lib"
+//    systemProperty "javax.net.debug", "extensions" //"ssl,handshake"
+}
+
+tasks.withType(Test) {
+    // adding the dir containing native lib to java.library.path (for testing)
+    systemProperty "java.library.path", project.buildDir.absolutePath + '/native/nativeCompile:' +
+            "/opt/homebrew/lib"
+//    systemProperty "javax.net.debug", "extensions" //"ssl,handshake"
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform() // mandatory for JUnit 5
+}

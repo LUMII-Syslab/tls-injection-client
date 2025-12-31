@@ -1,4 +1,4 @@
-package org.webkernel.https;
+package lv.lumii.samples;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
@@ -13,8 +13,6 @@ import java.net.Socket;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 public class HttpServer implements Runnable, Server {

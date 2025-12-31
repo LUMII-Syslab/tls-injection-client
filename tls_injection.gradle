@@ -25,7 +25,7 @@ tasks.register("cloneTlsInjectionMechanism", Exec) {
 
 tasks.register("checkoutTlsInjectionMechanism", Exec) {
     dependsOn cloneTlsInjectionMechanism
-    workingDir = file("..")
+    workingDir = file("../tls-injection-mechanism")
     commandLine "git",  'checkout', 'tls-injection2'
 }
 
@@ -126,16 +126,19 @@ tasks.register("downloadPqcLibs") {
 
 
 tasks.register("chmodPqc1", Exec) {
+    dependsOn downloadPqcLibs
     workingDir 'lib/Linux-x86_64'
     commandLine '/bin/bash', '-c', 'chmod +x *.so'
 }
 
 tasks.register("chmodPqc2", Exec) {
+    dependsOn downloadPqcLibs
     workingDir 'lib/Darwin-x86_64'
     commandLine '/bin/bash', '-c', 'chmod +x *.dylib'
 }
 
 tasks.register("chmodPqc3", Exec) {
+    dependsOn downloadPqcLibs
     workingDir 'lib/Darwin-arm64'
     commandLine '/bin/bash', '-c', 'chmod +x *.dylib'
 }
@@ -268,10 +271,17 @@ sourceSets.main {
 
                 'src/tls-injection-pqc/src/main/java',
                 'src/tls-injection-smartcard/src/main/java',
-                'src/tls-injection-qkd/src/main/java'
-
+                'src/tls-injection-qkd/src/main/java',
+                'src/tls-injection-butterfly/src/main/java'
     }
 }
 
+
+sourceSets.test {
+    java {
+        srcDirs
+                'src/test/java'
+    }
+}
 
 compileJava.options.encoding = "UTF-8"

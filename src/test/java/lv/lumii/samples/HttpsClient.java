@@ -1,4 +1,4 @@
-package org.webkernel.https;
+package lv.lumii.samples;
 
 import lv.lumii.pqc.InjectableFrodoKEM;
 import lv.lumii.pqc.InjectableLiboqsKEM;
@@ -6,8 +6,6 @@ import lv.lumii.pqc.InjectableLiboqsSigAlg;
 import lv.lumii.pqc.InjectableSphincsPlus;
 import lv.lumii.tls.auth.FileToken;
 import lv.lumii.tls.auth.Token;
-import lv.lumii.smartcard.InjectableSmartCardRSA;
-import lv.lumii.smartcard.SmartCardSignFunction;
 import nl.altindag.ssl.SSLFactory;
 import org.apache.hc.core5.http.ClassicHttpResponse;
 import org.apache.hc.core5.http.HttpException;
@@ -20,29 +18,26 @@ import org.openquantumsafe.Common;
 import org.openquantumsafe.KEMs;
 import org.openquantumsafe.Sigs;
 
-import javax.net.ssl.TrustManagerFactory;
-import javax.net.ssl.X509ExtendedTrustManager;
+import javax.net.ssl.*;
 import java.io.File;
 import java.io.IOException;
 import java.security.KeyStore;
 import java.security.SecureRandom;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
+import org.junit.jupiter.api.Test;
 
 
-public class HttpsTest {
+public class HttpsClient {
 
     private static final String MAIN_DIRECTORY = mainDirectory();
     private static String mainDirectory() {
-        File f = new File(HttpsTest.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+        File f = new File(HttpsClient.class.getProtectionDomain().getCodeSource().getLocation().getPath());
         String mainExecutable = f.getAbsolutePath();
         String mainDirectory = f.getParent();
 
@@ -69,12 +64,12 @@ public class HttpsTest {
     public static void main(String[] args) throws Exception {
 
         Common.loadNativeLibrary();
-        Token token = new FileToken(MAIN_DIRECTORY+File.separator+"client.pfx", "client-keystore-pass", "client");
+        Token token = new FileToken(MAIN_DIRECTORY+File.separator+"ca-scripts"+File.separator+"user1"+File.separator+"client.pfx", "client-keystore-pass", "client");
 
-        injectPQC(false, (message) -> token.signed(message));
+        injectPQC(true);
 
         try {
-            KeyStore trustStore = KeyStore.getInstance(new File(MAIN_DIRECTORY+File.separator+"ca.truststore"), "ca-truststore-pass".toCharArray());
+            KeyStore trustStore = KeyStore.getInstance(new File(MAIN_DIRECTORY+File.separator+"ca-scripts"+File.separator+"ca"+File.separator+"ca.truststore"), "ca-truststore-pass".toCharArray());
 
             TrustManagerFactory trustMgrFact = TrustManagerFactory.getInstance("SunX509");
             trustMgrFact.init(trustStore);
@@ -87,6 +82,9 @@ public class HttpsTest {
                         .withTrustMaterial(trustMgrFact)
                         .withSecureRandom(SecureRandom.getInstanceStrong())
                         .withCiphers("TLS_AES_256_GCM_SHA384")
+                        .withHostnameVerifier((hostname, session) -> {
+                            return true;
+                        })
                         .build();
 
             /*final SSLConnectionSocketFactory sslsf =
@@ -117,12 +115,33 @@ public class HttpsTest {
 
             Optional<X509ExtendedTrustManager> tm = sslf2.getTrustManager();
 
+
+
+            /*SSLSocket socket = (SSLSocket) sslf2.getSslContext()
+                    .getSocketFactory()
+                    .createSocket("aija.butterfly.quantum.lumii.lv", 443);
+
+            SSLSocket socket = (SSLSocket) sslf2.getSslSocketFactory().createSocket("aija.butterfly.quantum.lumii.lv", 443);
+
+            SSLParameters params = socket.getSSLParameters();
+            params.setServerNames(
+                    List.of(new SNIHostName("aija.butterfly.quantum.lumii.lv"))
+            );
+            socket.setSSLParameters(params);
+            socket.setUseClientMode(true);
+
+
+            socket.startHandshake();*/
+
             OkHttpClient client = new OkHttpClient.Builder()
                 .sslSocketFactory(sslf2.getSslSocketFactory(), tm.get())
                 .build();
 
+
             Request request = new Request.Builder()
-                    .url("https://127.0.0.1:4433")
+                    .url("https://85.254.199.17:4001")
+                    //.url("https://aija.butterfly.quantum.lumii.lv:4001")
+                    //.url("https://127.0.0.1:4433")
                     //.url("http://127.0.0.1:8080")
                     .build();
 
@@ -139,12 +158,11 @@ public class HttpsTest {
 
     }
 
-    private static void injectPQC(boolean insteadDefaultKems, SmartCardSignFunction smartCardSignFunction) {
+    private static void injectPQC(boolean insteadDefaultKems) {
         // PQC signatures are huge; increasing the max handshake size:
         System.setProperty("jdk.tls.maxHandshakeMessageSize", String.valueOf(32768 * 32));
 
         InjectableSphincsPlus mySphincs = new InjectableSphincsPlus();
-        InjectableSmartCardRSA myRSA = new InjectableSmartCardRSA(smartCardSignFunction);
 
         String oqsName = "SPHINCS+-SHA2-128f-simple";
         List<String> oqsAliases = Arrays.asList(new String[] {"SPHINCS+-SHA2-128F", "SPHINCS+", "SPHINCSPLUS"});
@@ -172,23 +190,27 @@ public class HttpsTest {
         InjectableLiboqsSigAlg oqsDilithium2 = new InjectableLiboqsSigAlg(oqsDilithiumName, oqsDilithiumAliases, oqsDilithiumOid, oqsDilithiumCodePoint);
 
         InjectableAlgorithms algs = new InjectableAlgorithms()
-                //.withSigAlg(oqsSphincs.name(), oqsAliases, oqsSphincs.oid(), oqsSphincs.codePoint(), oqsSphincs)
-                //.withSigAlg(oqsDilithiumName, oqsDilithiumAliases, oqsDilithiumOid, oqsDilithiumCodePoint, oqsDilithium2)
+                .withSigAlg(oqsSphincs.name(), oqsAliases, oqsSphincs.oid(), oqsSphincs.codePoint(), oqsSphincs)
+                .withSigAlg(oqsDilithiumName, oqsDilithiumAliases, oqsDilithiumOid, oqsDilithiumCodePoint, oqsDilithium2)
 
                 //.withSigAlg(mySphincs.name(), mySphincs.aliases(), mySphincs.oid(), mySphincs.codePoint(), mySphincs)
 
                 // for SC (2 lines):
-                .withSigAlg("SHA256WITHRSA", List.of(new String[]{}), myRSA.oid(), myRSA.codePoint(), myRSA)
-                .withSigAlg("RSA", List.of(new String[]{}), myRSA.oid(), myRSA.codePoint(), myRSA)
+                //.withSigAlg("SHA256WITHRSA", List.of(new String[]{}), myRSA.oid(), myRSA.codePoint(), myRSA)
+                //.withSigAlg("RSA", List.of(new String[]{}), myRSA.oid(), myRSA.codePoint(), myRSA)
                 //.withSigAlg("SHA256WITHRSA", myRSA.oid(), myRSA.codePoint(), myRSA)
                 //.withSigAlg("RSA", myRSA.oid(), myRSA.codePoint(), myRSA)
                 // RSA must be _after_ SHA256WITHRSA, since they share the same code point, and BC TLS uses "RSA" as a name for finding client RSA certs (however, SHA256WITHRSA is also needed for checking client cert signatures)
 
                 //.withKEM(InjectableFrodoKEM.NAME, InjectableFrodoKEM.CODE_POINT,
-                //       InjectableFrodoKEM::new, InjectableKEMs.Ordering.BEFORE)
+                //     InjectableFrodoKEM::new, InjectableKEMs.Ordering.BEFORE)
 
+                //.withKEM("ML-KEM-768", InjectableFrodoKEM.CODE_POINT,
+                //        ()->new InjectableLiboqsKEM("ML-KEM-768", InjectableFrodoKEM.CODE_POINT), InjectableKEMs.Ordering.AFTER);
                 .withKEM(InjectableFrodoKEM.NAME, InjectableFrodoKEM.CODE_POINT,
                         ()->new InjectableLiboqsKEM(InjectableFrodoKEM.NAME, InjectableFrodoKEM.CODE_POINT), InjectableKEMs.Ordering.AFTER);//.BEFORE);
+
+
 
         // TODO: ML-KEM-512, 0x0247
         if (insteadDefaultKems)
@@ -198,6 +220,15 @@ public class HttpsTest {
         InjectionPoint.theInstance().push(algs);
     }
 
+
+    @Test
+    public void testHttpsClient() throws Exception {
+        System.out.println("1244");
+        main(new String[]{});
+        // Example test: just a dummy assertion for demonstration
+        //System.out.println("Running HttpsTest.testHttpsConnection");
+        //assertTrue(true, "This test always passes");
+    }
 
 
 }
